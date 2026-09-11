@@ -2,9 +2,12 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 import * as core from "@actions/core";
-import * as github from "@actions/github";
 
 const execFileAsync = promisify(execFile);
+const githubApiVersion = "2026-03-10";
+const githubApiVersionHeaders = {
+  "X-GitHub-Api-Version": githubApiVersion,
+};
 // These control characters safely delimit Git fields and records in one command.
 const fieldSeparator = "\u001f";
 const recordSeparator = "\u001e";
@@ -51,7 +54,7 @@ function createCommitPattern(source) {
 async function getCommitsSince(tag) {
   const args = [
     "log",
-    "--format=%H%x1f%s%x1f%an%x1e",
+    "--format=%H%x1f%s%x1f%an%x1f%ae%x1e",
   ];
   if (tag) {
     args.push(`${tag}..HEAD`);
@@ -66,8 +69,8 @@ async function getCommitsSince(tag) {
     .split(recordSeparator)
     .filter(Boolean)
     .map((record) => {
-      const [sha, subject, authorName] = record.split(fieldSeparator);
-      return { sha, subject, authorName };
+      const [sha, subject, authorName, authorEmail] = record.split(fieldSeparator);
+      return { sha, subject, authorName, authorEmail };
     });
 }
 
@@ -90,65 +93,56 @@ function getMatchingCommits(commits, commitPattern) {
   return matchingCommits;
 }
 
-async function resolveCredit(octokit, owner, repo, commit) {
-  // A token is optional; missing or unlinked GitHub accounts use the Git author.
-  if (!octokit) {
-    return commit.authorName;
-  }
-
-  try {
-    const { repository } = await octokit.graphql(
-      `query CommitAuthor($owner: String!, $repo: String!, $expression: String!) {
-        repository(owner: $owner, name: $repo) {
-          object(expression: $expression) {
-            ... on Commit {
-              author {
-                user {
-                  login
-                }
-              }
-            }
-          }
-        }
-      }`,
-      { owner, repo, expression: commit.sha },
-    );
-    const login = repository?.object?.author?.user?.login;
-    return login ? `@${login}` : commit.authorName;
-  } catch (graphqlError) {
-    core.debug(
-      `Could not resolve the GitHub author through GraphQL for ${commit.sha}; trying REST. ${graphqlError.message}`,
-    );
-  }
-
-  try {
-    const { data } = await octokit.rest.repos.getCommit({
-      owner,
-      repo,
-      ref: commit.sha,
-    });
-    if (data.author?.login) {
-      return `@${data.author.login}`;
+async function getLoginsByEmail(commits) {
+  const representativeCommits = new Map();
+  for (const commit of commits) {
+    if (commit.authorEmail && !representativeCommits.has(commit.authorEmail)) {
+      representativeCommits.set(commit.authorEmail, commit);
     }
-  } catch (error) {
-    core.debug(
-      `Could not resolve the GitHub author for ${commit.sha}; using the Git author name. ${error.message}`,
-    );
   }
 
-  return commit.authorName;
+  const loginsByEmail = new Map();
+  const [owner, repo] = (process.env.GITHUB_REPOSITORY || "").split("/");
+  if (!owner || !repo) {
+    throw new Error("GITHUB_REPOSITORY must be set to resolve GitHub usernames.");
+  }
+
+  const apiUrl = process.env.GITHUB_API_URL || "https://api.github.com";
+  for (const [email, commit] of representativeCommits) {
+    try {
+      const response = await fetch(
+        `${apiUrl}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits/${commit.sha}`,
+        {
+          headers: {
+            Accept: "application/vnd.github+json",
+            ...githubApiVersionHeaders,
+          },
+        },
+      );
+      if (response.ok) {
+        const data = await response.json();
+        loginsByEmail.set(email, data.author?.login);
+      } else {
+        core.debug(`Could not resolve the GitHub author for ${commit.sha}: HTTP ${response.status}.`);
+      }
+    } catch (error) {
+      core.debug(`Could not resolve the GitHub author for ${commit.sha}: ${error.message}`);
+    }
+  }
+
+  return loginsByEmail;
 }
 
-async function getCredits(commits, token) {
+async function getCredits(commits) {
   const credits = new Map();
   if (commits.length === 0) {
     return credits;
   }
 
-  const octokit = token ? github.getOctokit(token) : undefined;
-  const { owner, repo } = github.context.repo;
+  const loginsByEmail = await getLoginsByEmail(commits);
   for (const commit of commits) {
-    const credit = await resolveCredit(octokit, owner, repo, commit);
+    const login = loginsByEmail.get(commit.authorEmail);
+    const credit = login ? `@${login}` : commit.authorName;
     credits.set(`${commit.language}\u0000${credit}`, { language: commit.language, credit });
   }
   return credits;
@@ -181,7 +175,7 @@ async function run() {
     }
 
     const commits = getMatchingCommits(await getCommitsSince(baselineTag), commitPattern);
-    const credits = await getCredits(commits, core.getInput("token"));
+    const credits = await getCredits(commits);
 
     const output = formatCredits([...credits.values()], baselineTag);
     core.setOutput("credits", output);

@@ -28,8 +28,6 @@ jobs:
 
       - id: translator-credits
         uses: audiobookshelf/get-translator-credits@v1
-        with:
-          token: ${{ github.token }}
 
       - name: Show translator credits
         run: |
@@ -42,7 +40,6 @@ jobs:
 
 | Input | Required | Default | Description |
 | --- | --- | --- | --- |
-| `token` | No | `${{ github.token }}` | Token used to resolve GitHub commit-author logins. Grant `contents: read` permission. |
 | `tagPattern` | No | `*` | Glob pattern for release tags. The nearest reachable matching tag is the baseline. |
 | `commitPattern` | No | `^Translated using Weblate \\((?<language>.+)\\)$` | JavaScript regular expression matched against a commit subject. It must include a named `language` capture group. |
 
@@ -52,7 +49,7 @@ jobs:
 | --- | --- |
 | `credits` | A ready-to-insert Markdown translator-credit block. |
 
-Matching commits derive their language from `commitPattern`. The action credits the linked GitHub commit-author login as `@username`; if no GitHub login is available, it credits the raw Git author name instead. Repeated language/credit pairs are removed, and the remaining entries are sorted by language and then credited name.
+Matching commits derive their language from `commitPattern`. For each distinct Git author email, the action uses a representative commit to look up the linked GitHub login through the public REST API; it credits that login as `@username` when available and otherwise credits the raw Git author name. Repeated language/credit pairs are removed, and the remaining entries are sorted by language and then credited name.
 
 For matching commits, `credits` follows this format:
 

@@ -5,10 +5,6 @@ branding:
   color: orange
 
 inputs:
-  token:
-    description: Token used to resolve GitHub commit-author logins.
-    required: false
-    default: ${{ github.token }}
   tagPattern:
     description: Glob pattern for release tags; the nearest reachable match is the baseline.
     required: false
