@@ -43,6 +43,7 @@ jobs:
 | --- | --- | --- | --- |
 | `tagPattern` | No | `*` | Glob pattern for release tags. The nearest reachable matching tag is the baseline. |
 | `commitPattern` | No | `^(?:Translated|Added translation) using Weblate \\((?<language>.+)\\)$` | JavaScript regular expression matched against a commit subject. It must include a named `language` capture group. |
+| `blacklistedUsers` | No | `advplyr,nichwall` | Comma-separated GitHub usernames to exclude from credits. Matching is case-insensitive; `@` is optional. |
 
 ## Output
 

@@ -13,6 +13,10 @@ inputs:
     description: JavaScript regular expression matched against commit subjects. It must provide a named `language` capture group.
     required: false
     default: '^(?:Translated|Added translation) using Weblate \((?<language>.+)\)$'
+  blacklistedUsers:
+    description: Comma-separated GitHub usernames to exclude from translator credits.
+    required: false
+    default: advplyr,nichwall
 
 outputs:
   credits:
