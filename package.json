@@ -1,0 +1,35 @@
+{
+  "name": "get-translator-credits",
+  "version": "0.0.1",
+  "description": "GitHub Action that gets translator credits for a repository",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "prepare": "ncc build index.js -o dist --source-map --license licenses.txt",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/audiobookshelf/get-translator-credits.git"
+  },
+  "keywords": [
+    "GitHub",
+    "Actions",
+    "JavaScript",
+    "Weblate"
+  ],
+  "author": "Nicholas Wallace",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/audiobookshelf/get-translator-credits.git/issues"
+  },
+  "homepage": "https://github.com/audiobookshelf/get-translator-credits.git#readme",
+  "dependencies": {
+    "@actions/core": "^3.0.1",
+    "@actions/github": "^9.1.1",
+    "lodash": "^4.18.1"
+  },
+  "devDependencies": {
+    "@vercel/ncc": "^0.45.0"
+  }
+}
