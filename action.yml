@@ -12,7 +12,7 @@ inputs:
   commitPattern:
     description: JavaScript regular expression matched against commit subjects. It must provide a named `language` capture group.
     required: false
-    default: ^Translated using Weblate \((?<language>.+)\)$
+    default: '^(?:Translated|Added translation) using Weblate \((?<language>.+)\)$'
 
 outputs:
   credits:
