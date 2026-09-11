@@ -1,0 +1,27 @@
+name: Get translator credits
+description: Build Markdown release-note credits for Weblate translators since the previous release tag.
+branding:
+  icon: users
+  color: orange
+
+inputs:
+  token:
+    description: Token used to resolve GitHub commit-author logins.
+    required: false
+    default: ${{ github.token }}
+  tagPattern:
+    description: Glob pattern for release tags; the nearest reachable match is the baseline.
+    required: false
+    default: *
+  commitPattern:
+    description: JavaScript regular expression matched against commit subjects. It must provide a named `language` capture group.
+    required: false
+    default: ^Translated using Weblate \((?<language>.+)\)$
+
+outputs:
+  credits:
+    description: Markdown translator-credit block for the commits since the previous matching release tag.
+
+runs:
+  using: node24
+  main: dist/index.js
