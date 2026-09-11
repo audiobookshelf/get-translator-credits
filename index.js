@@ -177,6 +177,9 @@ async function getCredits(commits, blacklistedUsers) {
     const login = loginsByEmail.get(commit.authorEmail);
     if (login && blacklistedUsers.has(login.toLowerCase())) {
       excludedCredits++;
+      core.info(
+        `Excluded @${login}: ${commit.subject} | author: ${commit.authorName} | SHA: ${commit.sha}`,
+      );
       continue;
     }
     const credit = login ? `@${login}` : commit.authorName;
