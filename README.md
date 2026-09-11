@@ -62,7 +62,7 @@ For matching commits, `credits` follows this format:
    - Chinese (Simplified Han script) by @advplyr
 ```
 
-If there are no matching commits, the output is `No translator credits found since <tag>.` If no reachable tag matches `tagPattern`, the action logs that fact and compares the complete checked-out history instead.
+If there are no matching commits, the output is `No translator credits found since <tag>.` If no reachable tag matches `tagPattern`, the action logs that fact and compares only the most recent 50 commits instead.
 
 ## License
 

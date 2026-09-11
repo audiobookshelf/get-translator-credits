@@ -32041,7 +32041,7 @@ function isDebug() {
  * @param message debug message
  */
 function core_debug(message) {
-    issueCommand('debug', {}, message);
+    command_issueCommand('debug', {}, message);
 }
 /**
  * Adds an error issue
@@ -32057,7 +32057,7 @@ function error(message, properties = {}) {
  * @param properties optional properties to add to the annotation.
  */
 function warning(message, properties = {}) {
-    command_issueCommand('warning', utils_toCommandProperties(properties), message instanceof Error ? message.toString() : message);
+    issueCommand('warning', toCommandProperties(properties), message instanceof Error ? message.toString() : message);
 }
 /**
  * Adds a notice issue
@@ -37211,13 +37211,18 @@ function createCommitPattern(source) {
 }
 
 async function getCommitsSince(tag) {
-  // Without a release baseline, consider every commit reachable from HEAD.
-  const range = tag ? `${tag}..HEAD` : "HEAD";
-  const output = await runGit([
+  const args = [
     "log",
     "--format=%H%x1f%s%x1f%an%x1e",
-    range,
-  ]);
+  ];
+  if (tag) {
+    args.push(`${tag}..HEAD`);
+  } else {
+    // Avoid an unbounded API lookup when a repository has no release baseline.
+    args.push("--max-count=50", "HEAD");
+  }
+
+  const output = await runGit(args);
 
   return output
     .split(recordSeparator)
@@ -37254,6 +37259,31 @@ async function resolveCredit(octokit, owner, repo, commit) {
   }
 
   try {
+    const { repository } = await octokit.graphql(
+      `query CommitAuthor($owner: String!, $repo: String!, $expression: String!) {
+        repository(owner: $owner, name: $repo) {
+          object(expression: $expression) {
+            ... on Commit {
+              author {
+                user {
+                  login
+                }
+              }
+            }
+          }
+        }
+      }`,
+      { owner, repo, expression: commit.sha },
+    );
+    const login = repository?.object?.author?.user?.login;
+    return login ? `@${login}` : commit.authorName;
+  } catch (graphqlError) {
+    core_debug(
+      `Could not resolve the GitHub author through GraphQL for ${commit.sha}; trying REST. ${graphqlError.message}`,
+    );
+  }
+
+  try {
     const { data } = await octokit.rest.repos.getCommit({
       owner,
       repo,
@@ -37263,7 +37293,7 @@ async function resolveCredit(octokit, owner, repo, commit) {
       return `@${data.author.login}`;
     }
   } catch (error) {
-    warning(
+    core_debug(
       `Could not resolve the GitHub author for ${commit.sha}; using the Git author name. ${error.message}`,
     );
   }
@@ -37290,7 +37320,7 @@ function formatCredits(credits, tag) {
   if (credits.length === 0) {
     return tag
       ? `No translator credits found since ${tag}.`
-      : "No translator credits found in the checked-out history.";
+      : "No translator credits found in the most recent 50 commits.";
   }
 
   const entries = [...credits].sort(
@@ -37309,7 +37339,7 @@ async function run() {
     const commitPattern = createCommitPattern(getInput("commitPattern"));
     const baselineTag = await findBaselineTag(tagPattern);
     if (!baselineTag) {
-      info(`No tags found matching ${tagPattern}; comparing the complete checked-out history.`);
+      info(`No tags found matching ${tagPattern}; comparing the most recent 50 commits.`);
     }
 
     const commits = getMatchingCommits(await getCommitsSince(baselineTag), commitPattern);
@@ -37317,7 +37347,7 @@ async function run() {
 
     const output = formatCredits([...credits.values()], baselineTag);
     setOutput("credits", output);
-    const rangeDescription = baselineTag ? `since ${baselineTag}` : "in the complete checked-out history";
+    const rangeDescription = baselineTag ? `since ${baselineTag}` : "in the most recent 50 commits";
     info(`Generated ${credits.size} translator credit${credits.size === 1 ? "" : "s"} ${rangeDescription}.`);
   } catch (error) {
     setFailed(error instanceof Error ? error.message : String(error));

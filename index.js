@@ -97,6 +97,31 @@ async function resolveCredit(octokit, owner, repo, commit) {
   }
 
   try {
+    const { repository } = await octokit.graphql(
+      `query CommitAuthor($owner: String!, $repo: String!, $expression: String!) {
+        repository(owner: $owner, name: $repo) {
+          object(expression: $expression) {
+            ... on Commit {
+              author {
+                user {
+                  login
+                }
+              }
+            }
+          }
+        }
+      }`,
+      { owner, repo, expression: commit.sha },
+    );
+    const login = repository?.object?.author?.user?.login;
+    return login ? `@${login}` : commit.authorName;
+  } catch (graphqlError) {
+    core.debug(
+      `Could not resolve the GitHub author through GraphQL for ${commit.sha}; trying REST. ${graphqlError.message}`,
+    );
+  }
+
+  try {
     const { data } = await octokit.rest.repos.getCommit({
       owner,
       repo,
@@ -106,7 +131,7 @@ async function resolveCredit(octokit, owner, repo, commit) {
       return `@${data.author.login}`;
     }
   } catch (error) {
-    core.warning(
+    core.debug(
       `Could not resolve the GitHub author for ${commit.sha}; using the Git author name. ${error.message}`,
     );
   }
@@ -133,7 +158,7 @@ function formatCredits(credits, tag) {
   if (credits.length === 0) {
     return tag
       ? `No translator credits found since ${tag}.`
-      : "No translator credits found in the complete history.";
+      : "No translator credits found in the most recent 50 commits.";
   }
 
   const entries = [...credits].sort(
@@ -152,7 +177,7 @@ async function run() {
     const commitPattern = createCommitPattern(core.getInput("commitPattern"));
     const baselineTag = await findBaselineTag(tagPattern);
     if (!baselineTag) {
-      core.info(`No tags found matching ${tagPattern}. Comparing the complete history.`);
+      core.info(`No tags found matching ${tagPattern}; comparing the most recent 50 commits.`);
     }
 
     const commits = getMatchingCommits(await getCommitsSince(baselineTag), commitPattern);
@@ -160,7 +185,7 @@ async function run() {
 
     const output = formatCredits([...credits.values()], baselineTag);
     core.setOutput("credits", output);
-    const rangeDescription = baselineTag ? `since ${baselineTag}` : "in the complete history";
+    const rangeDescription = baselineTag ? `since ${baselineTag}` : "in the most recent 50 commits";
     core.info(`Generated ${credits.size} translator credit${credits.size === 1 ? "" : "s"} ${rangeDescription}.`);
   } catch (error) {
     core.setFailed(error instanceof Error ? error.message : String(error));
