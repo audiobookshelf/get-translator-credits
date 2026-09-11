@@ -17,21 +17,19 @@ async function runGit(args) {
 }
 
 async function findBaselineTag(tagPattern) {
-  try {
-    return (await runGit([
-      "describe",
-      "--tags",
-      "--abbrev=0",
-      "--match",
-      tagPattern,
-      "HEAD",
-    ])).trim();
-  } catch {
-    throw new Error(
-      `No reachable tag matching "${tagPattern}" was found. ` +
-        "This action needs a matching prior release tag in the checked-out history.",
-    );
+  const matchingTags = await runGit(["tag", "--merged", "HEAD", "--list", tagPattern]);
+  if (!matchingTags.trim()) {
+    return undefined;
   }
+
+  return (await runGit([
+    "describe",
+    "--tags",
+    "--abbrev=0",
+    "--match",
+    tagPattern,
+    "HEAD",
+  ])).trim();
 }
 
 function createCommitPattern(source) {
@@ -51,10 +49,12 @@ function createCommitPattern(source) {
 }
 
 async function getCommitsSince(tag) {
+  // Without a release baseline, consider every commit reachable from HEAD.
+  const range = tag ? `${tag}..HEAD` : "HEAD";
   const output = await runGit([
     "log",
     "--format=%H%x1f%s%x1f%an%x1e",
-    `${tag}..HEAD`,
+    range,
   ]);
 
   return output
@@ -126,7 +126,9 @@ async function getCredits(commits, token) {
 
 function formatCredits(credits, tag) {
   if (credits.length === 0) {
-    return `No translator credits found since ${tag}.`;
+    return tag
+      ? `No translator credits found since ${tag}.`
+      : "No translator credits found in the complete history.";
   }
 
   const entries = [...credits].sort(
@@ -144,12 +146,17 @@ async function run() {
     const tagPattern = core.getInput("tagPattern") || "*";
     const commitPattern = createCommitPattern(core.getInput("commitPattern"));
     const baselineTag = await findBaselineTag(tagPattern);
+    if (!baselineTag) {
+      core.info(`No tags found matching ${tagPattern}. Comparing the complete history.`);
+    }
+
     const commits = getMatchingCommits(await getCommitsSince(baselineTag), commitPattern);
     const credits = await getCredits(commits, core.getInput("token"));
 
     const output = formatCredits([...credits.values()], baselineTag);
     core.setOutput("credits", output);
-    core.info(`Generated ${credits.size} translator credit${credits.size === 1 ? "" : "s"} since ${baselineTag}.`);
+    const rangeDescription = baselineTag ? `since ${baselineTag}` : "in the complete history";
+    core.info(`Generated ${credits.size} translator credit${credits.size === 1 ? "" : "s"} ${rangeDescription}.`);
   } catch (error) {
     core.setFailed(error instanceof Error ? error.message : String(error));
   }
