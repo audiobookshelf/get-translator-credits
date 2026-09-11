@@ -50,7 +50,7 @@ function createCommitPattern(source) {
 
 async function getCommitsSince(tag) {
   // Without a release baseline, consider every commit reachable from HEAD.
-  const range = tag ? `${tag}..HEAD` : "HEAD";
+  const range = tag ? `${tag}..HEAD` : "HEAD~50..HEAD";
   const output = await runGit([
     "log",
     "--format=%H%x1f%s%x1f%an%x1e",
