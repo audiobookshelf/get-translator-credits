@@ -31372,6 +31372,15 @@ function createCommitPattern(source) {
   return commitPattern;
 }
 
+function getBlacklistedUsers(source) {
+  return new Set(
+    source
+      .split(",")
+      .map((username) => username.trim().replace(/^@/, "").toLowerCase())
+      .filter(Boolean),
+  );
+}
+
 async function getCommitsSince(tag) {
   const args = [
     "log",
@@ -31469,25 +31478,33 @@ async function getLoginsByEmail(commits) {
     details.push(`${count} ${reason}`);
   }
   info(
-    `Resolved ${loginsByEmail.size} GitHub username` +
-      `from ${representativeCommits.size} distinct author email` +
+    `Resolved ${loginsByEmail.size} GitHub username${loginsByEmail.size === 1 ? "" : "s"} ` +
+      `from ${representativeCommits.size} distinct author email${representativeCommits.size === 1 ? "" : "s"}` +
       (details.length > 0 ? ` (${details.join(", ")})` : ""),
   );
 
   return loginsByEmail;
 }
 
-async function getCredits(commits) {
+async function getCredits(commits, blacklistedUsers) {
   const credits = new Map();
   if (commits.length === 0) {
     return credits;
   }
 
   const loginsByEmail = await getLoginsByEmail(commits);
+  let excludedCredits = 0;
   for (const commit of commits) {
     const login = loginsByEmail.get(commit.authorEmail);
+    if (login && blacklistedUsers.has(login.toLowerCase())) {
+      excludedCredits++;
+      continue;
+    }
     const credit = login ? `@${login}` : commit.authorName;
     credits.set(`${commit.language}\u0000${credit}`, { language: commit.language, credit });
+  }
+  if (excludedCredits > 0) {
+    info(`Excluded ${excludedCredits} credit${excludedCredits === 1 ? "" : "s"} for blacklisted GitHub users.`);
   }
   return credits;
 }
@@ -31528,13 +31545,14 @@ async function run() {
   try {
     const tagPattern = getInput("tagPattern") || "*";
     const commitPattern = createCommitPattern(getInput("commitPattern"));
+    const blacklistedUsers = getBlacklistedUsers(getInput("blacklistedUsers"));
     const baselineTag = await findBaselineTag(tagPattern);
     if (!baselineTag) {
       info(`No tags found matching ${tagPattern}; comparing the most recent 50 commits.`);
     }
 
     const commits = getMatchingCommits(await getCommitsSince(baselineTag), commitPattern);
-    const credits = await getCredits(commits);
+    const credits = await getCredits(commits, blacklistedUsers);
 
     const output = formatCredits([...credits.values()], baselineTag);
     setOutput("credits", output);
