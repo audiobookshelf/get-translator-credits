@@ -12,7 +12,7 @@ inputs:
   tagPattern:
     description: Glob pattern for release tags; the nearest reachable match is the baseline.
     required: false
-    default: *
+    default: "*"
   commitPattern:
     description: JavaScript regular expression matched against commit subjects. It must provide a named `language` capture group.
     required: false
