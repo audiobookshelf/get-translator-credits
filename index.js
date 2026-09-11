@@ -69,7 +69,7 @@ async function getCommitsSince(tag) {
     args.push(`${tag}..HEAD`);
   } else {
     // Avoid an unbounded API lookup when a repository has no release baseline.
-    args.push("--max-count=50", "HEAD");
+    args.push("--max-count=100", "HEAD");
   }
 
   const output = await runGit(args);
@@ -192,7 +192,7 @@ function formatCredits(credits, tag) {
   if (credits.length === 0) {
     return tag
       ? `No translator credits found since ${tag}.`
-      : "No translator credits found in the most recent 50 commits.";
+      : "No translator credits found in the most recent 100 commits.";
   }
 
   const creditsByLanguage = new Map();
@@ -227,7 +227,7 @@ async function run() {
     const blacklistedUsers = getBlacklistedUsers(core.getInput("blacklistedUsers"));
     const baselineTag = await findBaselineTag(tagPattern);
     if (!baselineTag) {
-      core.info(`No tags found matching ${tagPattern}; comparing the most recent 50 commits.`);
+      core.info(`No tags found matching ${tagPattern}; comparing the most recent 100 commits.`);
     }
 
     const commits = getMatchingCommits(await getCommitsSince(baselineTag), commitPattern);
@@ -235,7 +235,7 @@ async function run() {
 
     const output = formatCredits([...credits.values()], baselineTag);
     core.setOutput("credits", output);
-    const rangeDescription = baselineTag ? `since ${baselineTag}` : "in the most recent 50 commits";
+    const rangeDescription = baselineTag ? `since ${baselineTag}` : "in the most recent 100 commits";
     core.info(`Generated ${credits.size} translator credit${credits.size === 1 ? "" : "s"} ${rangeDescription}.`);
   } catch (error) {
     core.setFailed(error instanceof Error ? error.message : String(error));
