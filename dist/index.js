@@ -31200,7 +31200,7 @@ function isDebug() {
  * @param message debug message
  */
 function core_debug(message) {
-    command_issueCommand('debug', {}, message);
+    issueCommand('debug', {}, message);
 }
 /**
  * Adds an error issue
@@ -31424,6 +31424,8 @@ async function getLoginsByEmail(commits) {
   }
 
   const loginsByEmail = new Map();
+  const lookupFailures = new Map();
+  let unlinkedAuthors = 0;
   const [owner, repo] = (process.env.GITHUB_REPOSITORY || "").split("/");
   if (!owner || !repo) {
     throw new Error("GITHUB_REPOSITORY must be set to resolve GitHub usernames.");
@@ -31437,20 +31439,40 @@ async function getLoginsByEmail(commits) {
         {
           headers: {
             Accept: "application/vnd.github+json",
+            "User-Agent": "get-translator-credits",
             ...githubApiVersionHeaders,
           },
         },
       );
       if (response.ok) {
         const data = await response.json();
-        loginsByEmail.set(email, data.author?.login);
+        if (data.author?.login) {
+          loginsByEmail.set(email, data.author.login);
+        } else {
+          unlinkedAuthors++;
+        }
       } else {
-        core_debug(`Could not resolve the GitHub author for ${commit.sha}: HTTP ${response.status}.`);
+        const reason = `HTTP ${response.status}`;
+        lookupFailures.set(reason, (lookupFailures.get(reason) || 0) + 1);
       }
     } catch (error) {
-      core_debug(`Could not resolve the GitHub author for ${commit.sha}: ${error.message}`);
+      const reason = "network error";
+      lookupFailures.set(reason, (lookupFailures.get(reason) || 0) + 1);
     }
   }
+
+  const details = [];
+  if (unlinkedAuthors > 0) {
+    details.push(`${unlinkedAuthors} without a linked GitHub user`);
+  }
+  for (const [reason, count] of lookupFailures) {
+    details.push(`${count} ${reason}`);
+  }
+  info(
+    `Resolved ${loginsByEmail.size} GitHub username${loginsByEmail.size === 1 ? "" : "s"} ` +
+      `from ${representativeCommits.size} distinct author email${representativeCommits.size === 1 ? "" : "s"}` +
+      (details.length > 0 ? ` (${details.join(", ")})` : ""),
+  );
 
   return loginsByEmail;
 }
