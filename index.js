@@ -49,13 +49,18 @@ function createCommitPattern(source) {
 }
 
 async function getCommitsSince(tag) {
-  // Without a release baseline, consider every commit reachable from HEAD.
-  const range = tag ? `${tag}..HEAD` : "HEAD~50..HEAD";
-  const output = await runGit([
+  const args = [
     "log",
     "--format=%H%x1f%s%x1f%an%x1e",
-    range,
-  ]);
+  ];
+  if (tag) {
+    args.push(`${tag}..HEAD`);
+  } else {
+    // Avoid an unbounded API lookup when a repository has no release baseline.
+    args.push("--max-count=50", "HEAD");
+  }
+
+  const output = await runGit(args);
 
   return output
     .split(recordSeparator)
