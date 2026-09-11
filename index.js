@@ -67,10 +67,11 @@ async function getCommitsSince(tag) {
 
   return output
     .split(recordSeparator)
+    .map((record) => record.trim())
     .filter(Boolean)
     .map((record) => {
-      const [sha, subject, authorName, authorEmail] = record.trimStart().split(fieldSeparator);
-      return { sha, subject, authorName, authorEmail: authorEmail.trim() };
+      const [sha, subject, authorName, authorEmail = ""] = record.split(fieldSeparator);
+      return { sha, subject, authorName, authorEmail };
     });
 }
 
