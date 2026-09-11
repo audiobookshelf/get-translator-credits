@@ -69,8 +69,8 @@ async function getCommitsSince(tag) {
     .split(recordSeparator)
     .filter(Boolean)
     .map((record) => {
-      const [sha, subject, authorName, authorEmail] = record.split(fieldSeparator);
-      return { sha, subject, authorName, authorEmail };
+      const [sha, subject, authorName, authorEmail] = record.trimStart().split(fieldSeparator);
+      return { sha, subject, authorName, authorEmail: authorEmail.trim() };
     });
 }
 
@@ -155,13 +155,28 @@ function formatCredits(credits, tag) {
       : "No translator credits found in the most recent 50 commits.";
   }
 
-  const entries = [...credits].sort(
-    (left, right) =>
-      left.language.localeCompare(right.language) || left.credit.localeCompare(right.credit),
-  );
+  const creditsByLanguage = new Map();
+  for (const credit of credits) {
+    const languageCredits = creditsByLanguage.get(credit.language) || [];
+    languageCredits.push(credit.credit);
+    creditsByLanguage.set(credit.language, languageCredits);
+  }
+
+  const entries = [...creditsByLanguage]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([language, languageCredits]) => {
+      const usernames = languageCredits
+        .filter((credit) => credit.startsWith("@"))
+        .sort((left, right) => left.localeCompare(right));
+      const names = languageCredits
+        .filter((credit) => !credit.startsWith("@"))
+        .sort((left, right) => left.localeCompare(right));
+      const contributors = [usernames.join(" "), names.join(", ")].filter(Boolean).join(", ");
+      return `   - ${language} by ${contributors}`;
+    });
   return [
     " - More strings translated",
-    ...entries.map(({ language, credit }) => `   - ${language} by ${credit}`),
+    ...entries,
   ].join("\n");
 }
 
