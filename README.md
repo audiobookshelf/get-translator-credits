@@ -49,13 +49,13 @@ jobs:
 | --- | --- |
 | `credits` | A ready-to-insert Markdown translator-credit block. |
 
-Matching commits derive their language from `commitPattern`. For each distinct Git author email, the action uses a representative commit to look up the linked GitHub login through the public REST API; it credits that login as `@username` when available and otherwise credits the raw Git author name. Repeated language/credit pairs are removed and grouped by language. Languages are sorted alphabetically; within each line, sorted GitHub usernames appear first, separated by spaces, followed by sorted raw author names separated by commas.
+Matching commits derive their language from `commitPattern`. For each distinct Git author email, the action uses a representative commit to look up the linked GitHub login through the public REST API; it credits that login as `@username` when available and otherwise credits the raw Git author name. Repeated language/credit pairs are removed and grouped by language. Languages are sorted alphabetically; within each line, sorted GitHub usernames appear first, separated by spaces, followed by raw author names after a semicolon. Multiple raw author names are separated by commas.
 
 For matching commits, `credits` follows this format:
 
 ```md
  - More strings translated
-   - English by @nichwall @advplyr, John Smith
+   - English by @nichwall @advplyr; John Smith
    - Chinese (Simplified Han script) by @advplyr
 ```
 

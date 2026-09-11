@@ -194,7 +194,7 @@ function formatCredits(credits, tag) {
       const names = languageCredits
         .filter((credit) => !credit.startsWith("@"))
         .sort((left, right) => left.localeCompare(right));
-      const contributors = [usernames.join(" "), names.join(", ")].filter(Boolean).join(", ");
+      const contributors = [usernames.join(" "), names.join(", ")].filter(Boolean).join("; ");
       return `   - ${language} by ${contributors}`;
     });
   return [

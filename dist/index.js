@@ -31469,8 +31469,8 @@ async function getLoginsByEmail(commits) {
     details.push(`${count} ${reason}`);
   }
   info(
-    `Resolved ${loginsByEmail.size} GitHub username${loginsByEmail.size === 1 ? "" : "s"} ` +
-      `from ${representativeCommits.size} distinct author email${representativeCommits.size === 1 ? "" : "s"}` +
+    `Resolved ${loginsByEmail.size} GitHub username` +
+      `from ${representativeCommits.size} distinct author email` +
       (details.length > 0 ? ` (${details.join(", ")})` : ""),
   );
 
@@ -31515,7 +31515,7 @@ function formatCredits(credits, tag) {
       const names = languageCredits
         .filter((credit) => !credit.startsWith("@"))
         .sort((left, right) => left.localeCompare(right));
-      const contributors = [usernames.join(" "), names.join(", ")].filter(Boolean).join(", ");
+      const contributors = [usernames.join(" "), names.join(", ")].filter(Boolean).join("; ");
       return `   - ${language} by ${contributors}`;
     });
   return [
