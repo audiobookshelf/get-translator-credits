@@ -2,11 +2,11 @@
 
 Build a Markdown release-note block that credits Weblate translators whose commits were added since the previous release tag.
 
-The action examines the checked-out Git history. It uses the nearest reachable tag matching `tagPattern` as the baseline. The documented workflow runs on every commit pushed to `master`; use its output before creating a new release tag.
+The action examines the checked-out Git history. It uses the nearest reachable tag matching `tagPattern` as the baseline. The documented workflow runs only when a commit pushed to `master` has `weblate` in its message; use its output before creating a new release tag.
 
 ## Usage
 
-On each commit pushed to `master`, check out its complete history and tags, then use the `credits` output in your release-note workflow or another subsequent step.
+For commits pushed to `master` whose message contains `weblate`, check out complete history and tags, then use the `credits` output in your release-note workflow or another subsequent step.
 
 ```yaml
 name: Prepare release notes
@@ -18,6 +18,7 @@ on:
 
 jobs:
   release-notes:
+    if: contains(github.event.head_commit.message, 'weblate')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -31,7 +32,7 @@ jobs:
 
       - name: Show translator credits
         run: |
-          printf '%s\\n' "${{ steps.translator-credits.outputs.credits }}"
+          printf '%s\n' "${{ steps.translator-credits.outputs.credits }}"
 ```
 
 `fetch-depth: 0` is required so the action can find the prior matching release tag and its commits. Generate credits before creating a new release tag; if the action runs on an already tagged release commit, that tag becomes the baseline and no later commits are in the range.
